@@ -21,9 +21,10 @@ async function run() {
         await client.connect();
         const database = client.db('donorManagement');
         const donorCollection = database.collection('donors');
-        const usersCollection = database.collection('users');
-        const MyOrder = database.collection('orders');
         const BloodRequest = database.collection('requests');
+        const DonorMsg = database.collection('msgForDonor');
+        const NearestDonor = database.collection('nearestDonor');
+        const usersCollection = database.collection('users');
 
 
         // GET donors
@@ -32,7 +33,25 @@ async function run() {
             const donors = await cursor.toArray();
             res.send(donors);
         });
-
+        // GET donors
+        /* app.get('/donors', async (req, res) => {
+            const cursor = donorCollection.find({});
+            const page = req.query.page;
+            const size = parseInt(req.query.size);
+            let donors;
+            const count = await cursor.count();
+            if (page){
+                donors = await cursor.skip(page*size).limit(size).toArray();
+            }
+            else{
+                 donors = await cursor.toArray();
+            }
+           res.send({
+               count,
+               donors
+            });
+        });
+ */
 
         // DELETE donors from ManageProducts
         app.delete('/donors/:id', async (req, res) => {
@@ -61,14 +80,14 @@ async function run() {
             res.json(result)
         });
 
-        // GET Reviews
+        // GET Requests
         app.get('/requests', async (req, res) => {
             const cursor = BloodRequest.find({});
             const requests = await cursor.toArray();
             res.send(requests);
         });
 
-        // POST Review
+        // POST Requests
         app.post('/requests', async (req, res) => {
             const request = req.body;
             console.log('hit the post api', request);
@@ -76,52 +95,64 @@ async function run() {
             console.log(result);
             res.json(result)
         });
-
-        // GET orders 
-        app.get('/orders', async (req, res) => {
-            const cursor = MyOrder.find({});
-            const orders = await cursor.toArray();
-            res.send(orders);
+        // GET DonorMsg
+        app.get('/msgForDonor', async (req, res) => {
+            const cursor = DonorMsg.find({});
+            const requests = await cursor.toArray();
+            res.send(requests);
         });
 
-        // GET all order by email
-        app.get("/myOrders/:email", (req, res) => {
-            console.log(req.params);
-            MyOrder
-                .find({ email: req.params.email })
-                .toArray((err, results) => {
-                    res.send(results);
-                });
-        });
-
-        //DELETE my order
-        app.delete('/myOrders/:id', async (req, res) => {
-            const id = req.params.id;
-            const query = { _id: ObjectId(id) }
-            const result = await MyOrder.deleteOne(query);
-            res.json(result);
-        })
-
-        // POST orders
-        app.post('/orders', async (req, res) => {
-            const order = req.body;
-            console.log('hit the post api', order);
-            const result = await MyOrder.insertOne(order);
+        // POST DonorMsg
+        app.post('/msgForDonor', async (req, res) => {
+            const request = req.body;
+            console.log('hit the post api', request);
+            const result = await DonorMsg.insertOne(request);
             console.log(result);
             res.json(result)
         });
+        // GET DonorNearest
+        app.get('/nearestDonor', async (req, res) => {
+            const cursor = NearestDonor.find({});
+            const nearest = await cursor.toArray();
+            res.send(nearest);
+        });
 
-        // DELETE orders from ManageOrders
-        app.delete('/orders/:id', async (req, res) => {
+        // POST DonorNearest
+        app.post('/nearestDonor', async (req, res) => {
+            const nearest = req.body;
+            console.log('hit the post api', nearest);
+            const result = await NearestDonor.insertOne(nearest);
+            console.log(result);
+            res.json(result)
+        });
+         // DELETE nearest from ManageProducts
+         app.delete('/nearestDonor/:id', async (req, res) => {
             const id = req.params.id;
             const query = { _id: ObjectId(id) };
-            const result = await MyOrder.deleteOne(query);
+            const result = await NearestDonor.deleteOne(query);
+            console.log(result);
             res.json(result);
         });
 
+            /* user and admin part */
 
-        // user and admin part
+          // GET users 
+          app.get('/users', async (req, res) => {
+            const cursor = usersCollection.find({});
+            const users = await cursor.toArray();
+            res.send(users);
+        });
 
+        // single user
+        app.get('/usersEmail/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { email: email };
+            const user = await usersCollection.findOne(query);
+            // console.log(user);
+            res.send(user);
+        });
+
+        // admin create
         app.get('/users/:email', async (req, res) => {
             const email = req.params.email;
             const query = { email: email };
@@ -133,13 +164,15 @@ async function run() {
             res.json({ admin: isAdmin });
         })
 
+        // user post
         app.post('/users', async (req, res) => {
             const user = req.body;
             const result = await usersCollection.insertOne(user);
-            console.log(result);
+            // console.log(result);
             res.json(result);
         });
 
+        // user update
         app.put('/users', async (req, res) => {
             const user = req.body;
             const filter = { email: user.email };
@@ -149,68 +182,28 @@ async function run() {
             res.json(result);
         });
 
+        // user update by their email
+        app.put("/users/:email", async (req, res) => {
+            const user = req.body;
+            const filter = { email: user.email };
+            // console.log(user);
+            const options = { upsert: true };
+            const updateDoc = { $set: user };
+            const result = await usersCollection.updateOne(filter, updateDoc, options);
+            res.json(result);
+        });
+
+        // make admin with jwt
         app.put('/users/admin', async (req, res) => {
             const user = req.body;
-            console.log('put', user);
+            // console.log('put', user);
             const filter = { email: user.email };
             const updateDoc = { $set: { role: 'admin' } };
             const result = await usersCollection.updateOne(filter, updateDoc);
             res.json(result);
         });
-
-        //Update get
-        app.get('/orders/:id', async (req, res) => {
-            const id = req.params.id;
-            const query = { _id: ObjectId(id) };
-            const user = await MyOrder.findOne(query);
-            // console.log('load user with id: ', id);
-            res.send(user);
-        })
-
-        //  update
-        app.put("/updateStatus/:id", async (req, res) => {
-            const id = req.params.id;
-            const filter = { _id: ObjectId(id) };
-
-            MyOrder
-                .updateOne(filter, {
-                    $set: {
-                        status: "Shipped"
-                    },
-                })
-                .then((result) => {
-                    res.send(result);
-                    console.log(result);
-                });
-
-        });
-
-        // PAYMENT
-       /*  app.put('/orders/:id', async (req, res) => {
-            const id = req.params.id;
-            const payment = req.body;
-            const filter = { _id: ObjectId(id) };
-            const updateDoc = {
-                $set: {
-                    payment: payment
-                }
-            };
-            const result = await MyOrder.updateOne(filter, updateDoc);
-            res.json(result);
-        });
-
-        app.post('/create-payment-intent', async (req, res) => {
-            const paymentInfo = req.body;
-            const amount = paymentInfo.price * 100;
-            const paymentIntent = await stripe.paymentIntents.create({
-                currency: 'usd',
-                amount: amount,
-                payment_method_types: ['card']
-            });
-            res.json({ clientSecret: paymentIntent.client_secret })
-        }) */
-
-
+    
+        /* user and admin part end */
     }
     finally {
         // await client.close();
